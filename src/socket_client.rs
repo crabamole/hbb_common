@@ -146,6 +146,28 @@ pub async fn connect_tcp<
     connect_tcp_local(target, None, ms_timeout).await
 }
 
+// Connects to a relay server; in WebSocket mode it always goes to the relay path.
+#[inline]
+pub async fn connect_tcp_relay<
+    't,
+    T: IntoTargetAddr<'t> + ToSocketAddrs + IsResolvedSocketAddr + std::fmt::Display,
+>(
+    target: T,
+    ms_timeout: u64,
+) -> ResultType<crate::Stream> {
+    #[cfg(feature = "webrtc")]
+    if is_webrtc_endpoint(&target.to_string()) {
+        return connect_tcp(target, ms_timeout).await;
+    }
+    let target_str = websocket::check_ws_relay(&target.to_string());
+    if is_ws_endpoint(&target_str) {
+        return Ok(Stream::WebSocket(
+            websocket::WsFramedStream::new(target_str, None, None, ms_timeout).await?,
+        ));
+    }
+    connect_tcp(target, ms_timeout).await
+}
+
 // This function connects directly to the target without checking for websocket endpoints.
 pub async fn connect_tcp_local<
     't,
