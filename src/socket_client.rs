@@ -159,10 +159,6 @@ pub async fn connect_tcp_relay<
     if target_str.is_empty() {
         anyhow::bail!("No relay server from the rendezvous server");
     }
-    #[cfg(feature = "webrtc")]
-    if is_webrtc_endpoint(&target_str) {
-        return connect_tcp(target, ms_timeout).await;
-    }
     if !is_ws_endpoint(&target_str) {
         anyhow::bail!("Relay is not a WebSocket URL: {target_str}");
     }
