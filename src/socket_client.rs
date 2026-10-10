@@ -146,7 +146,7 @@ pub async fn connect_tcp<
     connect_tcp_local(target, None, ms_timeout).await
 }
 
-// Dials the relay exactly as hbbs handed it out; the client never derives one.
+// Dials the relay exactly as hbbs handed it out; clients dial only ws(s) relays.
 #[inline]
 pub async fn connect_tcp_relay<
     't,
@@ -163,12 +163,12 @@ pub async fn connect_tcp_relay<
     if is_webrtc_endpoint(&target_str) {
         return connect_tcp(target, ms_timeout).await;
     }
-    if is_ws_endpoint(&target_str) {
-        return Ok(Stream::WebSocket(
-            websocket::WsFramedStream::new(target_str, None, None, ms_timeout).await?,
-        ));
+    if !is_ws_endpoint(&target_str) {
+        anyhow::bail!("Relay is not a WebSocket URL: {target_str}");
     }
-    connect_tcp_local(target, None, ms_timeout).await
+    Ok(Stream::WebSocket(
+        websocket::WsFramedStream::new(target_str, None, None, ms_timeout).await?,
+    ))
 }
 
 // This function connects directly to the target without checking for websocket endpoints.
@@ -316,14 +316,16 @@ mod tests {
     }
 
     #[test]
-    fn test_connect_tcp_relay_without_relay() {
-        let err = connect_tcp_relay_without_relay();
+    fn test_connect_tcp_relay_rejects_missing_and_non_ws_relays() {
+        let err = connect_tcp_relay_error("");
         assert!(err.contains("No relay server"), "{err}");
+        let err = connect_tcp_relay_error("127.0.0.1:1");
+        assert!(err.contains("Relay is not a WebSocket URL: 127.0.0.1:1"), "{err}");
     }
 
     #[tokio::main(flavor = "current_thread")]
-    async fn connect_tcp_relay_without_relay() -> String {
-        match connect_tcp_relay("", 1000).await {
+    async fn connect_tcp_relay_error(target: &str) -> String {
+        match connect_tcp_relay(target, 1000).await {
             Ok(_) => String::new(),
             Err(e) => e.to_string(),
         }

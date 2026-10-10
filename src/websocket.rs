@@ -360,7 +360,7 @@ pub fn check_ws(endpoint: &str) -> String {
         .map(|(_, p)| p)
         .unwrap_or(RENDEZVOUS_PORT);
 
-    // Only hbbs is dialed from a host:port; relays come from hbbs as ws(s) URLs.
+    // Only hbbs is dialed from a host:port; relays are always ws(s) URLs.
     let dst_port = if endpoint_port == rendezvous_port - 1 {
         // online
         endpoint_port + 3
