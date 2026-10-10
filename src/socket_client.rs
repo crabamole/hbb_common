@@ -146,7 +146,7 @@ pub async fn connect_tcp<
     connect_tcp_local(target, None, ms_timeout).await
 }
 
-// Connects to a relay server; in WebSocket mode it always goes to the relay path.
+// Dials the relay exactly as hbbs handed it out; the client never derives one.
 #[inline]
 pub async fn connect_tcp_relay<
     't,
@@ -155,17 +155,20 @@ pub async fn connect_tcp_relay<
     target: T,
     ms_timeout: u64,
 ) -> ResultType<crate::Stream> {
+    let target_str = target.to_string();
+    if target_str.is_empty() {
+        anyhow::bail!("No relay server from the rendezvous server");
+    }
     #[cfg(feature = "webrtc")]
-    if is_webrtc_endpoint(&target.to_string()) {
+    if is_webrtc_endpoint(&target_str) {
         return connect_tcp(target, ms_timeout).await;
     }
-    let target_str = websocket::check_ws_relay(&target.to_string());
     if is_ws_endpoint(&target_str) {
         return Ok(Stream::WebSocket(
             websocket::WsFramedStream::new(target_str, None, None, ms_timeout).await?,
         ));
     }
-    connect_tcp(target, ms_timeout).await
+    connect_tcp_local(target, None, ms_timeout).await
 }
 
 // This function connects directly to the target without checking for websocket endpoints.
@@ -213,16 +216,6 @@ pub async fn query_nip_io(addr: &SocketAddr) -> ResultType<SocketAddr> {
         .await?
         .find(|x| x.is_ipv6())
         .context("Failed to get ipv6 from nip.io")
-}
-
-#[inline]
-pub fn ipv4_to_ipv6(addr: String, ipv4: bool) -> String {
-    if !ipv4 && crate::is_ipv4_str(&addr) {
-        if let Some(ip) = addr.split(':').next() {
-            return addr.replace(ip, &format!("{ip}.nip.io"));
-        }
-    }
-    addr
 }
 
 async fn test_target(target: &str) -> ResultType<SocketAddr> {
@@ -306,16 +299,6 @@ mod tests {
 
     #[tokio::main(flavor = "current_thread")]
     async fn test_nat64_async() {
-        assert_eq!(ipv4_to_ipv6("1.1.1.1".to_owned(), true), "1.1.1.1");
-        assert_eq!(ipv4_to_ipv6("1.1.1.1".to_owned(), false), "1.1.1.1.nip.io");
-        assert_eq!(
-            ipv4_to_ipv6("1.1.1.1:8080".to_owned(), false),
-            "1.1.1.1.nip.io:8080"
-        );
-        assert_eq!(
-            ipv4_to_ipv6("rustdesk.com".to_owned(), false),
-            "rustdesk.com"
-        );
         if ("rustdesk.com:80")
             .to_socket_addrs()
             .unwrap()
@@ -330,6 +313,20 @@ mod tests {
             return;
         }
         assert!(query_nip_io(&"1.1.1.1:80".parse().unwrap()).await.is_err());
+    }
+
+    #[test]
+    fn test_connect_tcp_relay_without_relay() {
+        let err = connect_tcp_relay_without_relay();
+        assert!(err.contains("No relay server"), "{err}");
+    }
+
+    #[tokio::main(flavor = "current_thread")]
+    async fn connect_tcp_relay_without_relay() -> String {
+        match connect_tcp_relay("", 1000).await {
+            Ok(_) => String::new(),
+            Err(e) => e.to_string(),
+        }
     }
 
     #[test]
