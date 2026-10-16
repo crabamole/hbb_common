@@ -67,6 +67,8 @@ message ControlPermissions {
 
 message ControlledContext {
   string conn_audit_ref = 1;
+  bool same_user = 2;
+  bytes owner_pk = 3;
 }
 
 message PunchHole {

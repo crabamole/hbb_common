@@ -96,6 +96,18 @@ pub fn get_cached_tls_accept_invalid_cert(url: &str) -> Option<bool> {
         .get(domain_port)
         .cloned()
 }
+
+/// Whether the last successful TLS connection to `url`'s host:port checked the certificate.
+/// Unlike `get_cached_tls_accept_invalid_cert`, this ignores the fallback option.
+#[inline]
+pub fn is_verified_tls(url: &str) -> bool {
+    if is_plain(url) {
+        return false;
+    }
+    let domain_port = get_domain_and_port_from_url(url);
+    URL_TLS_DANGER_ACCEPT_INVALID_CERTS.read().unwrap().get(domain_port) == Some(&false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +129,15 @@ mod tests {
             let domain_port = get_domain_and_port_from_url(url);
             assert_eq!(domain_port, expected_domain_port);
         }
+    }
+
+    #[test]
+    fn test_is_verified_tls() {
+        upsert_tls_cache("wss://verified.test/ws/id", TlsType::Rustls, false);
+        upsert_tls_cache("wss://fallback.test/ws/id", TlsType::Rustls, true);
+        assert!(is_verified_tls("wss://verified.test/ws/id"));
+        assert!(!is_verified_tls("wss://fallback.test/ws/id"));
+        assert!(!is_verified_tls("wss://never-connected.test/ws/id"));
+        assert!(!is_verified_tls("ws://verified.test/ws/id"));
     }
 }
