@@ -129,6 +129,7 @@ message RegisterPkResponse {
     NOT_SUPPORT = 6;
     SERVER_ERROR = 7;
     NOT_DEPLOYED = 8;
+    KEY_CHANGE_REFUSED = 9;
   }
   Result result = 1;
   int32 keep_alive = 2;
