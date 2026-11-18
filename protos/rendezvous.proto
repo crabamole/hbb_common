@@ -67,8 +67,9 @@ message ControlPermissions {
 
 message ControlledContext {
   string conn_audit_ref = 1;
-  bool same_user = 2;
-  bytes owner_pk = 3;
+  // crabamole fields start at 1001, so upstream can take the next free numbers.
+  bool same_user = 1001;
+  bytes owner_pk = 1002;
 }
 
 message PunchHole {
@@ -129,7 +130,8 @@ message RegisterPkResponse {
     NOT_SUPPORT = 6;
     SERVER_ERROR = 7;
     NOT_DEPLOYED = 8;
-    KEY_CHANGE_REFUSED = 9;
+    // crabamole values start at 1001, so upstream can take the next free numbers.
+    KEY_CHANGE_REFUSED = 1001;
   }
   Result result = 1;
   int32 keep_alive = 2;
